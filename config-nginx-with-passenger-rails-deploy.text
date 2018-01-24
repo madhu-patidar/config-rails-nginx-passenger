@@ -1,0 +1,101 @@
+Web server
+
+Step one — Install Passenger and Nginx
+
+	install Passenger on Ubuntu with the Advanced Packaging Tool (APT), which is what we'll be using. In this manner, the installation and — even more importantly — the update process for Passenger with Nginx, is really simple.
+
+	First, install a PGP key:
+
+		sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 561F9B9CAC40B2F7
+
+	Create an APT source file (you will need sudo privileges):
+
+		sudo nano /etc/apt/sources.list.d/passenger.list
+
+	And insert the following line in the file:
+
+		deb https://oss-binaries.phusionpassenger.com/apt/passenger trusty main
+		Press CTRL+x to exit, type y to save the file, and then press ENTER to confirm the file location.
+
+	Change the owner and permissions for this file:
+
+		sudo chown root: /etc/apt/sources.list.d/passenger.list
+		sudo chmod 600 /etc/apt/sources.list.d/passenger.list
+
+	Update the APT cache:
+
+		sudo apt-get update
+	
+	Finally, install Passenger with Nginx:
+
+		sudo apt-get install nginx-extras passenger
+	
+	This step will overwrite our Ruby version to an older one. To resolve this, simply remove the incorrect Ruby location and create a new symlink to the correct Ruby binary file:
+
+		sudo rm /usr/bin/ruby
+		sudo ln -s /usr/local/bin/ruby /usr/bin/ruby
+
+
+Step 2 — Set Up The Web Server
+
+	Open the Nginx configuration file:
+
+		sudo nano /etc/nginx/nginx.conf
+
+	Add two line in this file
+
+		passenger_root /home/webwerks/.rvm/gems/ruby-2.3.0/gems/passenger-5.1.12;
+		passenger_ruby /home/webwerks/.rvm/gems/ruby-2.3.0/wrappers/ruby;
+
+
+Step Three — Deploy
+	goto the rails Application directory
+
+	We need to disable the default Nginx configuration. Open the Nginx config file:
+
+		sudo nano /etc/nginx/sites-available/default
+
+	Find the lines:
+
+	listen 80 default_server;
+	listen [::]:80 default_server ipv6only=on;
+
+	Comment them out, like this:
+
+	# listen 80 default_server;
+	# listen [::]:80 default_server ipv6only=on;
+	Save the file.
+
+	Now, create an Nginx configuration file for our app:
+
+		sudo nano /etc/nginx/sites-available/testapp
+
+	Add the following server block. The settings are explained below.
+
+		server {
+		  listen 80 default_server;
+		  server_name www.mydomain.com;
+		  passenger_enabled on;
+		  passenger_app_env development;
+		  root /home/rails/testapp/public;
+		}
+	
+	In this file, we enable listening on port 80, set your domain name, enable Passenger, and set the root to the public directory of our new project. The root line is the one you'll want to edit to match the upload location of your Rails app.
+
+	If you don't want to assign your domain to this app, you can skip the server_name line, or use your IP address.
+
+	To test our setup, we want to see the Rails Welcome aboard page. However, this works only if the application is started in the development environment. Passenger starts the application in the production environment by default, so we need to change this with the passenger_app_env option. If your app is ready for production you'll want to leave this setting out.
+
+	Save the file (CTRL+x, y, ENTER).
+
+	Create a symlink for it:
+
+		sudo ln -s /etc/nginx/sites-available/testapp /etc/nginx/sites-enabled/testapp
+	
+	Restart Nginx:
+
+		sudo nginx -s reload
+	
+	Now your app's website should be accessible. Navigate to your Droplet's domain or IP address:
+
+		http://droplet_ip_address
